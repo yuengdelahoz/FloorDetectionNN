@@ -273,19 +273,29 @@ class Network:
 		else:
 			print('Output folder could not be created')
 
+	def run_inference_on_images(self,topology):
+		folder_path = utils.create_folder('Dataset/Images/new_input/')
+		if not utils.is_model_stored(topology):
+			print("No model stored to be restored.")
+			return
+		print('Evaluating',topology)
+		tf.reset_default_graph()
+		topology_path ='Models/{}/'.format(topology)
+		saver = tf.train.import_meta_graph(topology_path+'model.meta')
+		g = tf.get_default_graph()
+		x = g.get_tensor_by_name("input_images:0")
+		y = g.get_tensor_by_name("label_images:0")
+		keep_prob = g.get_tensor_by_name("keep_prob:0")
+		output= g.get_tensor_by_name("superpixels:0")
 	
-	# def run_inference_on_image(self,input_image):
-		# image = np.array(input_image,ndmin=4)
-		# saver = tf.train.import_meta_graph('Models/model.meta')
-		# g = tf.get_default_graph()
-		# x = g.get_tensor_by_name("input_images:0")
-		# keep_prob = g.get_tensor_by_name("keep_prob:0")
-		# output = tf.get_collection("output")[0]
-		# with tf.Session() as sess:
-			# saver.restore(sess,'Models/model')
-			# result = sess.run(output,feed_dict={x:image,keep_prob:1.0})
-			# print (result)
-			# paintedImg = utils.paintOrig(result.ravel(),input_image)
-			# return paintedImg
-
-
+		with tf.Session() as sess:
+			saver.restore(sess,topology_path + 'model')
+			for img in  os.scandir('Dataset/Images/input/'):
+				input_image = cv2.imread(img.path)
+				image = (input_image-128)/128
+				image = np.array(image,ndmin=4)
+				result = np.round(sess.run(output,feed_dict={x:image,keep_prob:1.0}))[0]
+				new_input = utils.generate_new_input_using_floor_detection(input_image,result)
+				cv2.imwrite(img.path.replace('input','new_input'),new_input)
+				print(img.name,'completed',end='\r')
+			print('\nDone')

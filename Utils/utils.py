@@ -27,9 +27,12 @@ def create_folder(name,clear_if_exists = True):
 		clear_folder(name)
 	try:
 		os.makedirs(name)
-		return name
 	except:
 		pass
+	finally:
+		return name
+
+
 
 def create_ptrials():
 	create_folder('ptrials')
@@ -233,6 +236,16 @@ def paintImage(image,superlabel):
 				red =np.zeros(image[sv:sv+8,sh:sh+8].shape)
 				red[:,:,2] = np.ones(red.shape[0:2])*255
 				paintedImg[sv:sv+8,sh:sh+8] = image[sv:sv+8,sh:sh+8]*0.5 + 0.5*red # 90% origin image, 10% red
+			pos +=1
+	return paintedImg
+
+def generate_new_input_using_floor_detection(image,superlabel):
+	paintedImg = image.copy()
+	pos = 0
+	for sv in range(0,240,8): # 12 superpixels in the height direction
+		for sh in range(0,240,8): # 12 superpixels in the width direction
+			if superlabel[pos]==0:
+				paintedImg[sv:sv+8,sh:sh+8] = 255
 			pos +=1
 	return paintedImg
 
