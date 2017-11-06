@@ -181,8 +181,41 @@ def cropImages():
 				cnt +=1
 	print('Done cropping')
 
+def crop_depth_images(path):
+	output_path = create_folder('depth_images_crop/')
+	cnt = 0
+	for img in os.scandir(path):
+		if img.name.endswith('.png'):
+			print('Cropping',img.name)
+			color = cv2.imread(img.path,cv2.IMREAD_COLOR)
+			label = cv2.imread(img.path.replace('color','label'),cv2.IMREAD_GRAYSCALE)
+			depth = cv2.imread(img.path.replace('color','depth'),cv2.IMREAD_GRAYSCALE)
+			heatmap = cv2.imread(img.path.replace('color','heat_map'),cv2.IMREAD_COLOR)
+			mask = cv2.imread(img.path.replace('color','mask'),cv2.IMREAD_GRAYSCALE)
+
+			color_path = create_folder(output_path+'color/',clear_if_exists = False)
+			depth_path = create_folder(output_path+'depth/',clear_if_exists = False)
+			label_path = create_folder(output_path+'label/',clear_if_exists = False)
+			heatmap_path = create_folder(output_path+'heat_map/',clear_if_exists = False)
+			mask_path = create_folder(output_path+'mask/',clear_if_exists = False)
+			for shift in range(0,80,10): # 8 crops
+				new_color = color[:,shift:240+shift]
+				new_label = label[:,shift:240+shift]
+				new_depth = depth[:,shift:240+shift]
+				new_heatmap = heatmap[:,shift:240+shift]
+				new_mask = mask[:,shift:240+shift]
+				name = 'img_{:010}.png'.format(cnt)
+				cv2.imwrite(color_path+name,new_color)
+				cv2.imwrite(label_path+name,new_label)
+				cv2.imwrite(depth_path+name,new_depth)
+				cv2.imwrite(heatmap_path+name,new_heatmap)
+				cv2.imwrite(output_path+name,new_mask)
+				cnt +=1
+	print('Done cropping')
+
+
 def createSuperLabels():
-	create_folder('Dataset/Images/superlabel')
+	create_folder('Dataset/Images2/superlabel')
 	"""
 	There are 240x240 = 57600 pixels, so every superpixels (900 in total) has 57600/900=64 pixels (12x12)
 	The resolution of each superlabel is 8x8 pixels
@@ -192,7 +225,7 @@ def createSuperLabels():
 	"""
 	sh = 0 # horizontal shift
 	sv = 0 # vertical shift
-	for img in os.scandir('Dataset/Images/label'):
+	for img in os.scandir('Dataset/Images2/label'):
 		print('Creating superlabel for',img.path)
 		label = cv2.imread(img.path)
 		superlabel = list() # empty list where to append Superpixels
@@ -203,19 +236,19 @@ def createSuperLabels():
 					superlabel.append(0) # mark superlabel as a ZERO
 				else:
 					superlabel.append(1) # mark superlabel as a ONE
-		np.save('Dataset/Images/superlabel/'+img.name.replace('.png',''),np.array(superlabel))
+		np.save('Dataset/Images2/superlabel/'+img.name.replace('.png',''),np.array(superlabel))
 	print('Done')
 
 def paintImagesAll():
-	create_folder('dataset/painted_images')
+	create_folder('Dataset/painted_images')
 	"""Iterate over original image (color) and paint (red blend) the superpixels that were identified as being part of the floor by the neural network"""
 	sh = 0 # horizontal shift
 	sv = 0 # vertical shift
-	for img in os.scandir('dataset/input'):
+	for img in os.scandir('Dataset/Images2/input'):
 		print('painting',img.name)
 		color = cv2.imread(img.path)
 		paintedImg = color.copy()
-		superlabel = np.load('dataset/superlabel/'+img.name.replace('.png','.npy'))
+		superlabel = np.load('Dataset/Images2/superlabel/'+img.name.replace('.png','.npy'))
 		pos = 0
 		for sv in range(0,240,8): # 12 superpixels in the height direction
 			for sh in range(0,240,8): # 12 superpixels in the width direction
@@ -224,7 +257,7 @@ def paintImagesAll():
 					red[:,:,2] = np.ones(red.shape[0:2])*255
 					paintedImg[sv:sv+8,sh:sh+8] = color[sv:sv+8,sh:sh+8]*0.5 + 0.5*red # 90% origin image, 10% red
 				pos +=1
-		cv2.imwrite('dataset/painted_images/'+img.name,paintedImg)
+		cv2.imwrite('Dataset/painted_images/'+img.name,paintedImg)
 	print('Done')
 
 def paintImage(image,superlabel):
@@ -320,6 +353,36 @@ def is_model_stored(top):
 	except:
 		return False
 
+def unify_all_folders(path):
+	output_path = create_folder('/Users/yuengdelahoz/Projects/depth_images/')
+	cnt = 0
+	for trial in os.scandir(path):
+		if os.path.isdir(trial.path):
+			for folder in os.scandir(trial.path):
+				if os.path.isdir(folder.path):
+					if folder.name == 'color':
+						for color_img in os.scandir(folder.path):
+							if color_img.name.endswith('png'):
+								name = 'image_{:010}.png'.format(cnt)
+								print(color_img.path,name)
+								color_path = create_folder(output_path+'color/',clear_if_exists = False)
+								depth_path = create_folder(output_path+'depth/',clear_if_exists = False)
+								label_path = create_folder(output_path+'label/',clear_if_exists = False)
+								heatmap_path = create_folder(output_path+'heat_map/',clear_if_exists = False)
+								mask_path = create_folder(output_path+'mask/',clear_if_exists = False)
+
+								depth_img = color_img.path.replace('color','depth')
+								label_img = color_img.path.replace('color','label')
+								heat_map_img = color_img.path.replace('color','heat_map')
+								mask_img = color_img.path.replace('color','mask')
+								if os.path.exists(depth_img) and os.path.exists(label_img) and os.path.exists(heat_map_img) and os.path.exists(mask_img):
+									shutil.copyfile(color_img.path,color_path+name)
+									shutil.copyfile(depth_img,depth_path+name)
+									shutil.copyfile(label_img,label_path+name)
+									shutil.copyfile(heat_map_img,heatmap_path+name)
+									shutil.copyfile(mask_img,mask_path+name) 
+									cnt +=1
+
 if __name__ == '__main__':
-	createSuperLabels()
+	paintImagesAll()
 

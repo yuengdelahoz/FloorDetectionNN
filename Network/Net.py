@@ -14,6 +14,7 @@ from pprint import pprint
 
 class Network:
 	def __init__(self):
+		pass
 		# Read Dataset
 		self.dataset = DataHandler().build_datasets()
 	
@@ -274,11 +275,12 @@ class Network:
 			print('Output folder could not be created')
 
 	def run_inference_on_images(self,topology):
-		folder_path = utils.create_folder('Dataset/Images/new_input/')
+		new_input_path = utils.create_folder('Dataset/Images2/new_input/')
+		label_path = utils.create_folder('Dataset/Images2/new_label/')
 		if not utils.is_model_stored(topology):
 			print("No model stored to be restored.")
 			return
-		print('Evaluating',topology)
+		print('Running inference on',topology)
 		tf.reset_default_graph()
 		topology_path ='Models/{}/'.format(topology)
 		saver = tf.train.import_meta_graph(topology_path+'model.meta')
@@ -294,8 +296,15 @@ class Network:
 				input_image = cv2.imread(img.path)
 				image = (input_image-128)/128
 				image = np.array(image,ndmin=4)
+				label_image = cv2.imread(img.path.replace('input','label'))
+				label = (label_image-128)/128
+				label = np.array(label,ndmin=4)
+
 				result = np.round(sess.run(output,feed_dict={x:image,keep_prob:1.0}))[0]
 				new_input = utils.generate_new_input_using_floor_detection(input_image,result)
-				cv2.imwrite(img.path.replace('input','new_input'),new_input)
+				new_label = utils.generate_new_input_using_floor_detection(label_image,result)
+
+				cv2.imwrite(new_input_path+img.name,new_input)
+				cv2.imwrite(label_path+img.name,new_label)
 				print(img.name,'completed',end='\r')
 			print('\nDone')
